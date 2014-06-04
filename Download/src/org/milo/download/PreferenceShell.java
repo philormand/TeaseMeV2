@@ -38,7 +38,7 @@ public class PreferenceShell {
 		super();
 	}
 
-	public Shell createShell(final Display display, AppSettings appSettings) {
+	public Shell createShell(final Display display) {
 		logger.trace("Enter createShell");
 		try {
 			//Control tmpWidget;
@@ -48,7 +48,7 @@ public class PreferenceShell {
 			//Create the main UI elements
 			myDisplay = display;
 			//myUserSettings = userSettings;
-			myAppSettings = appSettings;
+			myAppSettings = AppSettings.getAppSettings();
 			shell = new Shell(myDisplay, SWT.APPLICATION_MODAL + SWT.DIALOG_TRIM + SWT.RESIZE);
 
 			shell.setText("Guide Me Preferences");
@@ -80,7 +80,7 @@ public class PreferenceShell {
 			//tmpWidget2 = grpApp;
 			
 			//Data Directory
-			AddTextField(grpApp, "Data Directory", appWidgets.get("AppPageSoundBlnCtrl"), appWidgets.get("AppPageSoundBlnCtrl"), myAppSettings.getDataDirectory(), "AppDataDir", false);
+			AddTextField(grpApp, "Data Directory", grpApp, grpApp, myAppSettings.getDataDirectory(), "AppDataDir", false);
 
 
 			SquareButton btnCancel = new SquareButton(composite, SWT.PUSH);
@@ -110,7 +110,7 @@ public class PreferenceShell {
 			
 		}
 		catch (Exception ex) {
-			logger.error(ex.getLocalizedMessage());
+			logger.error(ex.getLocalizedMessage(), ex);
 		}
 		logger.trace("Exit createShell");
 		return shell;
@@ -170,13 +170,14 @@ public class PreferenceShell {
 				shell.close();
 			}
 			catch (Exception ex) {
-				logger.error(" CancelButtonListener " + ex.getLocalizedMessage());
+				logger.error(" CancelButtonListener " + ex.getLocalizedMessage(), ex);
 			}
 			logger.trace("Exit CancelButtonListener");
 		}
 	}
 
 	private void AddTextField(Group group, String labelText, Control prevControl, Control prevControl2, String value, String key, Boolean addNewmeric) {
+		try {
 		Label lblTmp;
 		Text txtTmp;
 		String lblSufix;
@@ -211,6 +212,10 @@ public class PreferenceShell {
 		appFormdata.put(key + ctrlSufix, txtTmpFormData);
 		appWidgets.put(key + lblSufix, lblTmp);
 		appWidgets.put(key + ctrlSufix, txtTmp);
+		}
+		catch (Exception ex){
+			logger.error(ex.getLocalizedMessage(), ex);
+		}
 	}
 
 	private void AddBooleanField(Group group, String labelText, Control prevControl, Control prevControl2, Boolean value, String key) {

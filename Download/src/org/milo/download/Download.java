@@ -16,6 +16,7 @@ import java.net.URL;
 import java.security.SecureRandom;
 import java.util.HashMap;
 
+import javax.net.ssl.HttpsURLConnection;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -55,7 +56,7 @@ public class Download implements Runnable {
 
 		int idpos = strUrl.indexOf("?id=");
 		String StrNyxId = strUrl.substring(idpos + 4);
-		String strNyxUrl = "http://www.milovana.com/webteases/getscript.php?id=" + StrNyxId;
+		String strNyxUrl = "https://www.milovana.com/webteases/getscript.php?id=" + StrNyxId;
 		String rawGuide = parseGuide(strNyxUrl);
 		String htmlstr = parseGuide(strUrl);
 		if (rawGuide.equals("")) {
@@ -117,6 +118,7 @@ public class Download implements Runnable {
 				strMediaDir = strTitle.replace(".", " ");
 				strMediaDir = strMediaDir.replace(":", " ");
 				strMediaDir = strMediaDir.replace("?", " ");
+				strMediaDir = strMediaDir.replace("#", "");
 				strMediaDir = strMediaDir.trim();
 			}
 			catch (Exception ex) {
@@ -889,7 +891,7 @@ public class Download implements Runnable {
 		}
 	}
 	private void saveFile(String strImagePath, String strImage, String AuthorID, String StrNyxId) {
-		String strUrl = "http://www.milovana.com/media/get.php?folder=" + AuthorID + "/" + StrNyxId + "&name=" + strImage;
+		String strUrl = "https://www.milovana.com/media/get.php?folder=" + AuthorID + "/" + StrNyxId + "&name=" + strImage;
 		saveFile(strImagePath, strUrl);
 	}
 
@@ -935,7 +937,7 @@ public class Download implements Runnable {
 		String USER_AGENT = "Mozilla/5.0";
 		String strReturn = "";
 		int responseCode = 0;
-		HttpURLConnection con;
+		HttpsURLConnection con;
 		//strURL = "http://www.milovana.com/webteases/showflash.php?id=21630";
 		//strURL = "http://www.milovana.com/webteases/getscript.php?id=21630";
 		//http://www.milovana.com/media/get.php?folder=27708/21630&name={2}
@@ -943,7 +945,7 @@ public class Download implements Runnable {
 		URL obj;
 		try {
 			obj = new URL(strURL);
-			con = (HttpURLConnection) obj.openConnection();
+			con = (HttpsURLConnection) obj.openConnection();
 
 			// optional default is GET
 			con.setRequestMethod("GET");

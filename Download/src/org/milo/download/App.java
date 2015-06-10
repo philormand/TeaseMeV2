@@ -22,6 +22,8 @@ public class App
             //if you set this to true you will get an additional window
             //that allows you to track resources that are created and not destroyed correctly
 
+            System.setProperty("jsse.enableSNIExtension", "false");
+            
       		Display display;
 
    			display = new Display();

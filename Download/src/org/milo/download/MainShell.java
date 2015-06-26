@@ -4,10 +4,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.browser.Browser;
-import org.eclipse.swt.events.MenuDetectEvent;
-import org.eclipse.swt.events.MenuDetectListener;
-import org.eclipse.swt.events.MouseAdapter;
-import org.eclipse.swt.events.MouseEvent;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.ShellAdapter;
@@ -25,7 +21,6 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Monitor;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
-import org.eclipse.swt.widgets.Widget;
 
 import com.snapps.swt.SquareButton;
 
@@ -175,7 +170,9 @@ public class MainShell {
 		@Override
 		public void shellClosed(ShellEvent e) {
 			try {
-				appSettings.saveSettings();
+				if (appSettings != null) {
+					appSettings.saveSettings();
+				}
 			}
 			catch (Exception ex) {
 				logger.error("shellCloseListen ", ex);
@@ -211,7 +208,7 @@ public class MainShell {
 		public void widgetSelected(SelectionEvent e) {
 			try {
 				logger.trace("Enter Menu Load");
-				brwsSearch.setUrl("http://www.milovana.com/webteases/#pp=20&type=2");
+				brwsSearch.setUrl("https://www.milovana.com/webteases/#pp=20&type=2");
 			}
 			catch (Exception ex3) {
 				logger.error("Load Image error " + ex3.getLocalizedMessage(), ex3);

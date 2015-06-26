@@ -1,5 +1,9 @@
 package org.milo.download;
 
+import java.nio.charset.Charset;
+import java.util.Iterator;
+import java.util.Properties;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.swt.widgets.Display;
@@ -18,10 +22,22 @@ public class App
     {
         try {
             logger.trace("Enter main");
-            //Sleak will help diagnose SWT memory leaks
-            //if you set this to true you will get an additional window
-            //that allows you to track resources that are created and not destroyed correctly
 
+			Properties properties = java.lang.System.getProperties();
+			Iterator<Object> it = properties.keySet().iterator();
+			//display all the jvm properties in the log file
+			while (it.hasNext()) {
+				String key = String.valueOf(it.next());
+				String value = String.valueOf(properties.get(key));
+				//write out at error level even though it is a debug message
+				//so we can turn it on, on a users machine
+				logger.error(key + " - " + value);
+			}
+			String version;
+			version = ComonFunctions.getVersion();
+			logger.error("Download Version - " + version);
+			logger.error("Charset " + Charset.defaultCharset().displayName());
+			
             System.setProperty("jsse.enableSNIExtension", "false");
             
       		Display display;

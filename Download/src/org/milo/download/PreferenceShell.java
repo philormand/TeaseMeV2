@@ -218,7 +218,7 @@ public class PreferenceShell {
 		}
 	}
 
-	private void AddBooleanField(Group group, String labelText, Control prevControl, Control prevControl2, Boolean value, String key) {
+	public void AddBooleanField(Group group, String labelText, Control prevControl, Control prevControl2, Boolean value, String key) {
 		Label lblTmp;
 		Button btnTmp;
 		FormData lblTmpFormData;

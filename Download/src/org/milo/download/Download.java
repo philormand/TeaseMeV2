@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
-import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.SecureRandom;
@@ -113,13 +112,20 @@ public class Download implements Runnable {
 					strTitle = strTitle.replace("%3F", "?");
 					strTitle = strTitle.replace("%28", "(");
 					strTitle = strTitle.replace("%29", ")");
-					//%26
+					strTitle = strTitle.replace("%2C", ",");
 				}
-				strMediaDir = strTitle.replace(".", " ");
-				strMediaDir = strMediaDir.replace(":", " ");
-				strMediaDir = strMediaDir.replace("?", " ");
+				strMediaDir = strTitle.replace(" ", "-");
+				strMediaDir = strMediaDir.replace(":", "");
+				strMediaDir = strMediaDir.replace("!", "");
+				strMediaDir = strMediaDir.replace("'", "");
 				strMediaDir = strMediaDir.replace("#", "");
-				strMediaDir = strMediaDir.trim();
+				strMediaDir = strMediaDir.replace("?", "");
+				strMediaDir = strMediaDir.replace(".", "-");
+				strMediaDir = strMediaDir.replace("(", "-");
+				strMediaDir = strMediaDir.replace(")", "-");
+				strMediaDir = strMediaDir.replace(",", "-");
+				strMediaDir = strMediaDir.replace("--", "-");
+				strMediaDir = strMediaDir.replace("--", "-");
 			}
 			catch (Exception ex) {
 				logger.error(" strTitle " + ex.getLocalizedMessage());
@@ -262,6 +268,7 @@ public class Download implements Runnable {
 										posnTextEnd = strPage.indexOf("',", posnTextStart);
 										strText = strPage.substring(posnTextStart, posnTextEnd);
 										strText = strText.replace("SIZE=\"", "style=\"font-size:");
+										strText = strText.replace("Â","");
 
 										//strip the text
 										strPage = strPage.substring(0, posnTextStart) + strPage.substring(posnTextEnd);
@@ -269,14 +276,13 @@ public class Download implements Runnable {
 										strPage = strPage.replace("#page(text:'',", "");
 										// Text elements
 										Element Text = doc.createElement("Text");
-										try {
-											docText = docBuilder.parse(new InputSource( new StringReader( strText ) ) );
-										} catch (Exception e) {
-											docText = docBuilder.parse(new InputSource( new StringReader( "<TEXTFORMAT>" + strText + "</TEXTFORMAT>")));
-										}
+										StringReader tempStr = new StringReader( "<TEXTFORMAT>" + strText + "</TEXTFORMAT>");
+										InputSource tempInpSrc = new InputSource(tempStr );
+										docText = docBuilder.parse(tempInpSrc);
 										Node tmpText = doc.importNode(docText.getFirstChild(), true);
 										Text.appendChild(tmpText);
 										Page.appendChild(Text);
+										tempStr.close();
 									}
 								}
 								catch (Exception ex) {
@@ -337,7 +343,7 @@ public class Download implements Runnable {
 											File f = new File(strAudioPath);
 											if(!f.exists()){
 
-												URL Audiourl = new URL("http://www.milovana.com/media/get.php?folder=" + AuthorID + "/" + StrNyxId + "&name=" + strAudio);
+												URL Audiourl = new URL("https://www.milovana.com/media/get.php?folder=" + AuthorID + "/" + StrNyxId + "&name=" + strAudio);
 												InputStream in = new BufferedInputStream(Audiourl.openStream());
 												ByteArrayOutputStream out = new ByteArrayOutputStream();
 												byte[] buf = new byte[1024];
@@ -658,7 +664,7 @@ public class Download implements Runnable {
 			int intImgSearchStart;
 			int intImageStart;
 			int intImageEnd;
-			int intRate;
+			//int intRate;
 			String strNextPage;
 			String strPageText;
 			String strImage;
@@ -711,7 +717,7 @@ public class Download implements Runnable {
 					strTitle = strTitle.replace("%3F", "?");
 					strTitle = strTitle.replace("%28", "(");
 					strTitle = strTitle.replace("%29", ")");
-					//%26
+					strTitle = strTitle.replace("%2C", ",");
 				}
 				strMediaDir = strTitle.replace(" ", "-");
 				strMediaDir = strMediaDir.replace(":", "");
@@ -722,6 +728,7 @@ public class Download implements Runnable {
 				strMediaDir = strMediaDir.replace(".", "-");
 				strMediaDir = strMediaDir.replace("(", "-");
 				strMediaDir = strMediaDir.replace(")", "-");
+				strMediaDir = strMediaDir.replace(",", "-");
 				strMediaDir = strMediaDir.replace("--", "-");
 				strMediaDir = strMediaDir.replace("--", "-");
 			}
@@ -738,6 +745,7 @@ public class Download implements Runnable {
 				Element rootElement = doc.createElement("Tease");
 				try {
 					rootElement.setAttribute("id", StrNyxId);
+					rootElement.setAttribute("scriptVersion", "v0.1");
 				}
 				catch (Exception ex) {
 					logger.error(" StrNyxId " + ex.getLocalizedMessage());
@@ -862,7 +870,7 @@ public class Download implements Runnable {
 								}
 
 								//last page
-								intRate = htmlstr.indexOf("<a name=\"rate\"></a>");
+								htmlstr.indexOf("<a name=\"rate\"></a>");
 								if (contloop) {
 									htmlstr = parseGuide(strUrl + "&p=" + strNextPage + "#t");
 									strPageName = strNextPage;
@@ -900,6 +908,9 @@ public class Download implements Runnable {
 	
 	private void saveFile(String strImagePath, String strUrl) {
         File f = new File(strImagePath);
+        if (strImagePath.endsWith("mp3")) {
+        	logger.debug("audio file");
+        }
         try {
 			if(!f.exists()){
 
@@ -936,11 +947,11 @@ public class Download implements Runnable {
 	private String parseGuide(String strURL) {
 		String USER_AGENT = "Mozilla/5.0";
 		String strReturn = "";
-		int responseCode = 0;
+		//int responseCode = 0;
 		HttpsURLConnection con;
-		//strURL = "http://www.milovana.com/webteases/showflash.php?id=21630";
-		//strURL = "http://www.milovana.com/webteases/getscript.php?id=21630";
-		//http://www.milovana.com/media/get.php?folder=27708/21630&name={2}
+		//strURL = "https://www.milovana.com/webteases/showflash.php?id=21630";
+		//strURL = "https://www.milovana.com/webteases/getscript.php?id=21630";
+		//https://www.milovana.com/media/get.php?folder=27708/21630&name={2}
 
 		URL obj;
 		try {
@@ -952,7 +963,7 @@ public class Download implements Runnable {
 
 			//add request header
 			con.setRequestProperty("User-Agent", USER_AGENT);
-			responseCode = con.getResponseCode();
+			con.getResponseCode();
 			BufferedReader in = new BufferedReader(
 					new InputStreamReader(con.getInputStream()));
 			String inputLine;
@@ -964,8 +975,7 @@ public class Download implements Runnable {
 			//print result
 			strReturn =  response.toString();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(" IOException " + e.getLocalizedMessage());
 		}
 		return strReturn;
 	}

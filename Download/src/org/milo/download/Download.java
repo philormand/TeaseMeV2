@@ -13,7 +13,10 @@ import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.xml.parsers.DocumentBuilder;
@@ -40,6 +43,7 @@ public class Download implements Runnable {
 	private Boolean isFlash;
 	MainShell mainShell;
 	private AppSettings appSettings;
+	private List<byte[]> images = new ArrayList<>();
 
 	public Download(String url, MainShell shell) {
 		strUrl = url;
@@ -72,6 +76,8 @@ public class Download implements Runnable {
 			int intEnd;
 			SecureRandom rndgen = new SecureRandom();
 			HashMap<String, Integer> rndImages = new HashMap<String, Integer>();
+			HashMap<String, String> mustNotMap = new HashMap<String, String>();
+			HashMap<String, String> mustMap = new HashMap<String, String>();
 			String AuthorID = "";
 			try {
 				intStrt = htmlstr.indexOf("href=\"webteases/#author=");
@@ -126,6 +132,7 @@ public class Download implements Runnable {
 				strMediaDir = strMediaDir.replace(",", "-");
 				strMediaDir = strMediaDir.replace("--", "-");
 				strMediaDir = strMediaDir.replace("--", "-");
+				doUpdateTitle(mainShell, strTitle);
 			}
 			catch (Exception ex) {
 				logger.error(" strTitle " + ex.getLocalizedMessage());
@@ -227,7 +234,84 @@ public class Download implements Runnable {
 					String strImagePath;
 					Boolean blnLoop = true;
 					Element Page;
+
+					
+					//process mustnot
+					while (blnLoop) {
+						posn = rawGuide.indexOf("mustnot(self:");
+						if (posn == -1) {
+							blnLoop = false;
+						}
+						else {
+							posn2 = rawGuide.indexOf("#", posn + 1);
+							strPageName = rawGuide.substring(posn + 13, posn2);
+							String strPageList = "";
+							boolean getpage = false;
+							int posnEnd = rawGuide.indexOf(")", posn2);
+							for (int i = posn2; i < posnEnd; i++)
+							{
+								if (getpage) {
+									if (rawGuide.substring(i, i+1).equals("#")) {
+										getpage = false;
+										strPageList = strPageList + ",";
+									}
+									else {
+										strPageList = strPageList + rawGuide.substring(i, i+1);
+									}
+								}
+								else {
+									if (rawGuide.substring(i, i+1).equals(":")) {
+										getpage = true;
+									}
+								}
+							}
+							strPageList = strPageList.substring(0, strPageList.length() - 1);
+							mustNotMap.put(strPageName, strPageList);
+							rawGuide = rawGuide.substring(0, posn) + rawGuide.substring(posnEnd + 1);
+						}
+						
+					}
+					
+					
+					//process must
+					blnLoop = true;
+					while (blnLoop) {
+						posn = rawGuide.indexOf("must(self:");
+						if (posn == -1) {
+							blnLoop = false;
+						}
+						else {
+							posn2 = rawGuide.indexOf("#", posn + 1);
+							strPageName = rawGuide.substring(posn + 10, posn2);
+							String strPageList = "";
+							boolean getpage = false;
+							int posnEnd = rawGuide.indexOf(")", posn2);
+							for (int i = posn2; i < posnEnd; i++)
+							{
+								if (getpage) {
+									if (rawGuide.substring(i, i+1).equals("#")) {
+										getpage = false;
+										strPageList = strPageList + ",";
+									}
+									else {
+										strPageList = strPageList + rawGuide.substring(i, i+1);
+									}
+								}
+								else {
+									if (rawGuide.substring(i, i+1).equals(":")) {
+										getpage = true;
+									}
+								}
+							}
+							strPageList = strPageList.substring(0, strPageList.length() - 1);
+							mustMap.put(strPageName, strPageList);
+							rawGuide = rawGuide.substring(0, posn) + rawGuide.substring(posnEnd + 1);
+						}
+						
+					}
+
 					//loop round the nyx script
+					blnLoop = true;
 					while (blnLoop) {
 						try {
 							strText = "";
@@ -239,6 +323,12 @@ public class Download implements Runnable {
 								strPageName = rawGuide.substring(currposn, posn);
 								Page = doc.createElement("Page");
 								Page.setAttribute("id", strPageName);
+								if (mustMap.containsKey(strPageName)) {
+									Page.setAttribute("if-set", mustMap.get(strPageName));
+								}
+								if (mustNotMap.containsKey(strPageName)) {
+									Page.setAttribute("if-not-set", mustNotMap.get(strPageName));
+								}
 								Pages.appendChild(Page);
 								doUpdate(mainShell, strPageName);
 								posn2 = rawGuide.indexOf("#page", posn + 1);
@@ -305,6 +395,7 @@ public class Download implements Runnable {
 											if (strImage.contains("*")) {
 												if (!rndImages.containsKey(strImage)) {
 													for (int i = 0; i < 25; i++) {
+													//for (int i = 0; i < 1; i++) {
 														int intName = rndgen.nextInt();
 														if (intName < 0) {
 															intName = 0 - intName;
@@ -378,7 +469,7 @@ public class Download implements Runnable {
 									strPage = strPage.replace(",e1:", ",action:");
 									strPage = strPage.replace(",e2:", ",action:");
 								}
-
+								
 								//Delay
 								//action:delay(time:20sec,target:warmup8#,style:hidden
 								//<Delay seconds="10" target="Page4" start-with="" style="hidden" onTriggered="delayP4()" />
@@ -467,14 +558,26 @@ public class Download implements Runnable {
 								//Continue buttons
 								try {
 									int posnGoStart = strPage.indexOf("action:go(target:");
+									String strGoTarget;
 									if (posnGoStart != -1) {
-										int posnGoEnd = strPage.indexOf("#)", posnGoStart);
-										String strGoTarget = strPage.substring(posnGoStart + 17, posnGoEnd);
+										int tmpStart;
+										int tmpEnd;
+										tmpStart = strPage.indexOf("target:", posnGoStart);
+										int tmpRange = strPage.indexOf("range(from:", tmpStart);
+										if (tmpRange != -1) {
+											int tmpMiddle = strPage.indexOf(",to:", tmpRange);
+											tmpEnd = strPage.indexOf(",:'page')", tmpMiddle);
+											strGoTarget = "(" + strPage.substring(tmpRange + 11, tmpMiddle) + ".." + strPage.substring(tmpMiddle + 4, tmpEnd) + ")";
+											tmpEnd = strPage.indexOf(")", tmpEnd + 9);
+										} else {
+											tmpEnd = strPage.indexOf("#", tmpStart);
+											strGoTarget = strPage.substring(tmpStart + 7, tmpEnd);
+										}
 										Element go = doc.createElement("Button");
 										go.appendChild(doc.createTextNode("Continue"));
 										go.setAttribute("target", strGoTarget);
 										Page.appendChild(go);
-										strPage = strPage.substring(0, posnGoStart) + strPage.substring(posnGoEnd + 2);
+										strPage = strPage.substring(0, posnGoStart) + strPage.substring(tmpEnd + 2);
 									}
 								}
 								catch (Exception ex) {
@@ -567,9 +670,23 @@ public class Download implements Runnable {
 								// set / unset
 								//instruc:mult(
 								//action:mult(
+								//hidden:unset
 								try {
 									strPage = strPage.replace("action:mult(", "instruc:mult(");
+									strPage = strPage.replace("hidden:unset(", "instruc:unset(");
 									int posnInstructStart = strPage.indexOf("instruc:mult(");
+									if (posnInstructStart == -1) {
+										posnInstructStart = strPage.indexOf("instruc:unset(");
+										if (posnInstructStart == -1) {
+											posnInstructStart = strPage.indexOf("instruc:set(");
+										}
+										if (posnInstructStart == -1) {
+											posnInstructStart = strPage.indexOf("action:unset(");
+											if (posnInstructStart == -1) {
+												posnInstructStart = strPage.indexOf("action:set(");
+											}
+										}
+									}
 									if (posnInstructStart != -1) {
 										int posnInstructEnd = -1;
 
@@ -627,7 +744,7 @@ public class Download implements Runnable {
 
 								//whats left
 								//,,),)
-								if (!strPage.equals(",)") && !strPage.equals(")") && !strPage.equals(",,))") && !strPage.equals(",,)") && !strPage.equals(",,,)") && !strPage.equals(",,),)")) {
+								if (!strPage.equals(",") && !strPage.equals(",)") && !strPage.equals(")") && !strPage.equals(",,))") && !strPage.equals(",,)") && !strPage.equals(",,,)") && !strPage.equals(",,),)")) {
 									Page.appendChild(doc.createComment("Error:  " + strPage));
 								}
 
@@ -731,6 +848,7 @@ public class Download implements Runnable {
 				strMediaDir = strMediaDir.replace(",", "-");
 				strMediaDir = strMediaDir.replace("--", "-");
 				strMediaDir = strMediaDir.replace("--", "-");
+				doUpdateTitle(mainShell, strTitle);
 			}
 			catch (Exception ex) {
 				logger.error(" strTitle " + ex.getLocalizedMessage());
@@ -926,11 +1044,23 @@ public class Download implements Runnable {
 				out.close();
 				in.close();
 				byte[] response = out.toByteArray();
-				FileOutputStream fos = new FileOutputStream(strImagePath);
-				fos.write(response);
-				fos.close();
+				boolean found = false;
+				for (byte[] image : images)
+				{
+					if (Arrays.equals(image, response))
+					{
+						found = true;
+					}	
+				}
+				if (!found)
+				{
+					images.add(response);
+					FileOutputStream fos = new FileOutputStream(strImagePath);
+					fos.write(response);
+					fos.close();
+				}
 				try {
-					Thread.sleep(500);
+					Thread.sleep(50);
 				} catch (Exception e) {
 					logger.error(" Thread sleep " + e.getLocalizedMessage());
 				}				                	
@@ -989,4 +1119,13 @@ public class Download implements Runnable {
 		      }
 		    });
 		  }
-}
+	  private static void doUpdateTitle(final MainShell mainShell,
+		      final String value) {
+		  Display.getDefault().asyncExec(new Runnable() {
+		      @Override
+		      public void run() {
+		    	  mainShell.setLbltitle(value);
+		      }
+		    });
+		  }
+	  }

@@ -37,6 +37,7 @@ public class MainShell {
 	private Shell shell;
 	private Text txtURL;
 	private Label lblURL;
+	private Label lbltitle;
 	private Label lblmessage;
 	private Browser brwsSearch;
 	
@@ -45,6 +46,10 @@ public class MainShell {
 		this.lblmessage.setText(message);
 	}
 
+	public void setLbltitle(String title) {
+		this.lbltitle.setText(title);
+	}
+	
 	public Shell createShell(final Display display) {
 		logger.trace("Enter createShell");
 		// Initialise variable
@@ -107,10 +112,17 @@ public class MainShell {
 			btnSaveGuide.setLayoutData(btnSaveFormData);
 			btnSaveGuide.addSelectionListener(new SaveButtonListener());
 
+			lbltitle = new Label(shell, SWT.LEFT);
+			FormData lbltitleFormData = new FormData();
+			lbltitleFormData.top = new FormAttachment(btnSaveGuide,5);
+			lbltitleFormData.left = new FormAttachment(0,5);
+			lbltitleFormData.right = new FormAttachment(100, -5);
+			lbltitle.setLayoutData(lbltitleFormData);
+			lbltitle.setText("title");
+			
 			lblmessage = new Label(shell, SWT.LEFT);
-			lblmessage.setText("Milo URL:");
 			FormData lblmessageFormData = new FormData();
-			lblmessageFormData.top = new FormAttachment(btnSaveGuide,5);
+			lblmessageFormData.top = new FormAttachment(lbltitle,5);
 			lblmessageFormData.left = new FormAttachment(0,5);
 			lblmessageFormData.right = new FormAttachment(100, -5);
 			lblmessage.setLayoutData(lblmessageFormData);

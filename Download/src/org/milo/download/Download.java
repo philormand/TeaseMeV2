@@ -13,10 +13,10 @@ import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.SecureRandom;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.xml.parsers.DocumentBuilder;
@@ -43,7 +43,7 @@ public class Download implements Runnable {
 	private Boolean isFlash;
 	MainShell mainShell;
 	private AppSettings appSettings;
-	private List<byte[]> images = new ArrayList<>();
+	private HashMap<String, byte[]> images = new HashMap<String, byte[]>();
 
 	public Download(String url, MainShell shell) {
 		strUrl = url;
@@ -222,18 +222,31 @@ public class Download implements Runnable {
 					String strPage;
 					String strPageName;
 					int currposn = 0;
+					int posnMax = rawGuide.length();
 					int posn;
+					int posnPage;
+					int posnGoto;
+					int posnVert;
+					int posnMult;
 					int posn2;
+					int posn2Page;
+					int posn2Goto;
+					int posn2Vert;
+					int posn2Mult;
 					int posn3;
 					int posnTextStart;
 					int posnTextEnd;
 					int posnPicStart;
 					int posnPicEnd;
+					String endText = "',";
+					String startImage = "media:pic(id:\"";
+					String startButtons = "action:buttons(target";
 					String strText;
 					String strImage;
 					String strImagePath;
 					Boolean blnLoop = true;
 					Element Page;
+					String pageType;
 
 					
 					//process mustnot
@@ -315,11 +328,52 @@ public class Download implements Runnable {
 					while (blnLoop) {
 						try {
 							strText = "";
-							posn = rawGuide.indexOf("#page", currposn);
-							if (posn == -1) {
+							posnMult = rawGuide.indexOf("#mult", currposn);
+							if (posnMult == -1) posnMult = posnMax;
+							posnVert = rawGuide.indexOf("#vert", currposn);
+							if (posnVert == -1) posnVert = posnMax;
+							posnGoto = rawGuide.indexOf("#goto", currposn);
+							if (posnGoto == -1) posnGoto = posnMax;
+							posnPage = rawGuide.indexOf("#page", currposn);
+							if (posnPage == -1) posnPage = posnMax;
+							if (posnPage == posnMax  && posnGoto == posnMax  && posnVert == posnMax && posnVert == posnMult) {
 								blnLoop = false;
 							} else {
 								//found a page
+								posn = posnMax;
+								pageType = "";
+								if (posnMult < posn)
+								{
+									pageType = "#mult";
+									endText = "'),";
+									startImage = ":pic(id:\"";
+									startButtons = "buttons(target";
+									posn = posnMult;
+								}
+								if (posnVert < posn)
+								{
+									pageType = "#vert";
+									endText = "'),";
+									startImage = ":pic(id:\"";
+									startButtons = "buttons(target";
+									posn = posnVert;
+								}
+								if (posnGoto < posn)
+								{
+									pageType = "#goto";
+									endText = "',";
+									startImage = "media:pic(id:\"";
+									startButtons = "action:buttons(target";
+									posn = posnGoto;
+								}
+								if (posnPage < posn)
+								{
+									pageType = "#page";
+									endText = "',";
+									startImage = "media:pic(id:\"";
+									startButtons = "action:buttons(target";
+									posn = posnPage;
+								}
 								strPageName = rawGuide.substring(currposn, posn);
 								Page = doc.createElement("Page");
 								Page.setAttribute("id", strPageName);
@@ -331,8 +385,35 @@ public class Download implements Runnable {
 								}
 								Pages.appendChild(Page);
 								doUpdate(mainShell, strPageName);
-								posn2 = rawGuide.indexOf("#page", posn + 1);
-								if (posn2 != -1) {
+								
+
+								posn2Mult = rawGuide.indexOf("#mult", posn + 1);
+								if (posn2Mult == -1) posn2Mult = posnMax;
+								posn2Vert = rawGuide.indexOf("#vert", posn + 1);
+								if (posn2Vert == -1) posn2Vert = posnMax;
+								posn2Goto = rawGuide.indexOf("#goto", posn + 1);
+								if (posn2Goto == -1) posn2Goto = posnMax;
+								posn2Page = rawGuide.indexOf("#page", posn + 1);
+								if (posn2Page == -1) posn2Page = posnMax;
+								posn2 = posnMax;
+								if (posn2Mult < posn2)
+								{
+									posn2 = posn2Mult;
+								}
+								if (posn2Vert < posn2)
+								{
+									posn2 = posn2Vert;
+								}
+								if (posn2Goto < posn2)
+								{
+									posn2 = posn2Goto;
+								}
+								if (posn2Page < posn2)
+								{
+									posn2 = posn2Page;
+								}
+								
+								if (posn2 != posnMax) {
 									posn3 = rawGuide.lastIndexOf(")", posn2);
 									strPage = rawGuide.substring(posn, posn3 + 1);
 									currposn = posn3 + 1;
@@ -340,6 +421,7 @@ public class Download implements Runnable {
 									strPage = rawGuide.substring(posn);
 									blnLoop = false;
 								}
+								
 								// Page name is now in strPageName
 								//content is now in strPage
 								//add the nyx code for the page as a comment
@@ -355,7 +437,11 @@ public class Download implements Runnable {
 									posnTextStart = strPage.indexOf("text:'");
 									if (posnTextStart != -1) {
 										posnTextStart = posnTextStart + 6;
-										posnTextEnd = strPage.indexOf("',", posnTextStart);
+										posnTextEnd = strPage.indexOf(endText, posnTextStart);
+										if (posnTextEnd == -1)
+										{
+											posnTextEnd = strPage.indexOf("')", posnTextStart);
+										}
 										strText = strPage.substring(posnTextStart, posnTextEnd);
 										strText = strText.replace("SIZE=\"", "style=\"font-size:");
 										strText = strText.replace("Â","");
@@ -363,7 +449,7 @@ public class Download implements Runnable {
 										//strip the text
 										strPage = strPage.substring(0, posnTextStart) + strPage.substring(posnTextEnd);
 										//strip the unneeded page and text stuff
-										strPage = strPage.replace("#page(text:'',", "");
+										strPage = strPage.replace(pageType + "(text:'',", "");
 										// Text elements
 										Element Text = doc.createElement("Text");
 										StringReader tempStr = new StringReader( "<TEXTFORMAT>" + strText + "</TEXTFORMAT>");
@@ -381,7 +467,7 @@ public class Download implements Runnable {
 								//get the media
 								//images
 								try {
-									posnPicStart = strPage.indexOf("media:pic(id:\"");
+									posnPicStart = strPage.indexOf(startImage);
 									if (posnPicStart != -1) {
 										posnPicEnd =  strPage.indexOf("\")", posnPicStart);
 										if (posnPicEnd != -1) {
@@ -393,6 +479,11 @@ public class Download implements Runnable {
 											Page.appendChild(Image);
 
 											if (strImage.contains("*")) {
+												String tmpImage = strImage;
+												if (tmpImage.endsWith("*"))
+												{
+													tmpImage = tmpImage + ".jpg";
+												}
 												if (!rndImages.containsKey(strImage)) {
 													for (int i = 0; i < 25; i++) {
 													//for (int i = 0; i < 1; i++) {
@@ -400,7 +491,7 @@ public class Download implements Runnable {
 														if (intName < 0) {
 															intName = 0 - intName;
 														}
-														String strRndName = strImage.replace("*", Integer.toString(intName));
+														String strRndName = tmpImage.replace("*", Integer.toString(intName));
 														strImagePath = strGuidePath + "\\" + strMediaDir + "\\" + strRndName;
 														saveFile(strImagePath, strImage, AuthorID, StrNyxId);
 													}
@@ -419,9 +510,15 @@ public class Download implements Runnable {
 
 								//sound
 								try {
-									int posnSndStart = strPage.indexOf("hidden:sound(id:'");
+									String delim = "'";
+									int posnSndStart = strPage.indexOf("hidden:sound(id:" + delim);
+									if (posnSndStart == -1)
+									{
+										delim = "\"";
+										posnSndStart = strPage.indexOf("hidden:sound(id:" + delim);
+									}
 									if (posnSndStart != -1) {
-										int posnSndEnd =  strPage.indexOf("')", posnSndStart);
+										int posnSndEnd =  strPage.indexOf(delim + ")", posnSndStart);
 										if (posnSndEnd != -1) {
 											String strAudio = strPage.substring(posnSndStart + 17, posnSndEnd);
 											strPage = strPage.substring(0, posnSndStart) + strPage.substring(posnSndEnd + 2);
@@ -492,6 +589,10 @@ public class Download implements Runnable {
 										if (tmpRange != -1) {
 											int tmpMiddle = strPage.indexOf(",to:", tmpRange);
 											tmpEnd = strPage.indexOf(",:'page')", tmpMiddle);
+											if (tmpEnd == -1)
+											{
+												tmpEnd = strPage.indexOf(")", tmpMiddle);
+											}
 											strDTarget = "(" + strPage.substring(tmpRange + 11, tmpMiddle) + ".." + strPage.substring(tmpMiddle + 4, tmpEnd) + ")";
 											posndelayEnd = strPage.indexOf(")", tmpEnd + 9);
 										} else {
@@ -542,7 +643,21 @@ public class Download implements Runnable {
 										Element delay = doc.createElement("Delay");
 										tmpStart = strPage.indexOf("target:", posndelayStart);
 										tmpEnd = strPage.indexOf("#", tmpStart);
-										strDTarget = strPage.substring(tmpStart + 7, tmpEnd);
+										if (tmpEnd == -1)
+										{
+											//range
+											int fromPos = strPage.indexOf("from:", tmpStart);
+											int fromEndPos = strPage.indexOf(",to:", fromPos);
+											int toEndPos = strPage.indexOf(")", fromEndPos);
+											String startPage = strPage.substring(fromPos + 5, fromEndPos);
+											String endPage = strPage.substring(fromEndPos + 4, toEndPos);
+											strDTarget = "(" + startPage + ".." + endPage + ")";
+											posndelayEnd++;
+										}
+										else
+										{
+											strDTarget = strPage.substring(tmpStart + 7, tmpEnd);
+										}
 										delay.setAttribute("target", strDTarget);
 										delay.setAttribute("seconds", strDSeconds);
 										delay.setAttribute("style", strDStyle);
@@ -566,9 +681,15 @@ public class Download implements Runnable {
 										int tmpRange = strPage.indexOf("range(from:", tmpStart);
 										if (tmpRange != -1) {
 											int tmpMiddle = strPage.indexOf(",to:", tmpRange);
+											int intOffset = 9;
 											tmpEnd = strPage.indexOf(",:'page')", tmpMiddle);
+											if (tmpEnd == -1)
+											{
+												tmpEnd = strPage.indexOf(")", tmpMiddle);
+												intOffset = 1;
+											}
 											strGoTarget = "(" + strPage.substring(tmpRange + 11, tmpMiddle) + ".." + strPage.substring(tmpMiddle + 4, tmpEnd) + ")";
-											tmpEnd = strPage.indexOf(")", tmpEnd + 9);
+											tmpEnd = strPage.indexOf(")", tmpEnd + intOffset);
 										} else {
 											tmpEnd = strPage.indexOf("#", tmpStart);
 											strGoTarget = strPage.substring(tmpStart + 7, tmpEnd);
@@ -610,10 +731,10 @@ public class Download implements Runnable {
 
 								//Buttons
 								try {
-									int posnBtnStart = strPage.indexOf("action:buttons(target");
+									int posnBtnStart = strPage.indexOf(startButtons);
 									if (posnBtnStart != -1) {
 										int posnBtnEnd = strPage.indexOf("\")");
-										String strButtons = strPage.substring(posnBtnStart + 21, posnBtnEnd);
+										String strButtons = strPage.substring(posnBtnStart + startButtons.length(), posnBtnEnd);
 										strPage = strPage.substring(0, posnBtnStart) + strPage.substring(posnBtnEnd + 2);
 										Boolean btnloop = true;
 										int btnstart;
@@ -639,7 +760,7 @@ public class Download implements Runnable {
 														} else {
 															strBtnCap = strButtons.substring(capstart + 2);
 														}
-
+														strBtnCap = HtmlUnEncode(strBtnCap);
 														button = doc.createElement("Button");
 														button.appendChild(doc.createTextNode(strBtnCap));
 														button.setAttribute("target", strBtnTarget);
@@ -672,6 +793,11 @@ public class Download implements Runnable {
 								//action:mult(
 								//hidden:unset
 								try {
+									if (pageType == "#mult" || pageType == "#vert")
+									{
+										strPage = strPage.replace(":unset(", "action:unset(");
+										strPage = strPage.replace(":set(", "action:set(");
+									}
 									strPage = strPage.replace("action:mult(", "instruc:mult(");
 									strPage = strPage.replace("hidden:unset(", "instruc:unset(");
 									int posnInstructStart = strPage.indexOf("instruc:mult(");
@@ -685,55 +811,107 @@ public class Download implements Runnable {
 											if (posnInstructStart == -1) {
 												posnInstructStart = strPage.indexOf("action:set(");
 											}
+											else
+											{
+												if (strPage.indexOf("action:set(") < posnInstructStart)
+												{
+													posnInstructStart = strPage.indexOf("action:set(");
+												}
+											}
 										}
 									}
 									if (posnInstructStart != -1) {
 										int posnInstructEnd = -1;
 
-										//Set
+										int posnSetEnd = 0;
+										int posnUnSetEnd = 0;
+										int posnLastSet = 0;
+										int posnLastUnSet = 0;
+										int posnSetStart = posnInstructStart;
+										int posnUnSetStart = posnInstructStart;
+										boolean keepGoingSet = true; 
+										boolean keepGoingUnSet = true; 
 										String strSet = "";
-										int posnSetStart = strPage.indexOf(":set(", posnInstructStart);
-										int posnSetEnd = -1;
-										if  (posnSetStart != -1) {
-											posnSetEnd = strPage.indexOf(")", posnSetStart);
-											int intActStart = strPage.indexOf("action", posnSetStart);
-											intActStart = strPage.indexOf(":", intActStart);
-											int intActEnd = strPage.indexOf("#", intActStart);
-											strSet = strSet + strPage.substring(intActStart + 1, intActEnd);
-											intActStart = strPage.indexOf("action", intActEnd);
-											while (intActStart != -1 && intActStart < posnSetEnd) {
-												intActStart = strPage.indexOf(":", intActStart);
-												intActEnd = strPage.indexOf("#", intActStart);
-												strSet = strSet + "," + strPage.substring(intActStart + 1, intActEnd);
-												intActStart = strPage.indexOf("action", intActEnd);
-											}
-											Page.setAttribute("set", strSet);
-										}
-
-										//Unset
 										String strUnSet = "";
-										int posnUnSetStart = strPage.indexOf(":unset(", posnInstructStart);
-										int posnUnSetEnd = -1;
-										if  (posnUnSetStart != -1) {
-											posnUnSetEnd = strPage.indexOf(")", posnUnSetStart);
-											int intActStart = strPage.indexOf("action", posnUnSetStart);
-											intActStart = strPage.indexOf(":", intActStart);
-											int intActEnd = strPage.indexOf("#", intActStart);
-											strUnSet = strUnSet + strPage.substring(intActStart + 1, intActEnd);
-											intActStart = strPage.indexOf("action", intActEnd);
-											while (intActStart != -1 && intActStart < posnUnSetEnd) {
+										while (keepGoingSet || keepGoingUnSet)
+										{
+											//Set
+											posnSetStart = strPage.indexOf(":set(", posnSetStart);
+											posnSetEnd = -1;
+											if  (posnSetStart != -1 && keepGoingSet) {
+												posnSetEnd = strPage.indexOf(")", posnSetStart);
+												if (posnSetEnd > posnLastSet){
+													posnLastSet = posnSetEnd;
+												}
+												int intActStart = strPage.indexOf("action", posnSetStart);
 												intActStart = strPage.indexOf(":", intActStart);
-												intActEnd = strPage.indexOf("#", intActStart);
-												strUnSet = strUnSet + "," + strPage.substring(intActStart + 1, intActEnd);
+												int intActEnd = strPage.indexOf("#", intActStart);
+												if (strSet.length() > 0)
+												{
+													strSet = strSet + "," + strPage.substring(intActStart + 1, intActEnd);
+												}
+												else
+												{
+													strSet = strSet + strPage.substring(intActStart + 1, intActEnd);
+												}
 												intActStart = strPage.indexOf("action", intActEnd);
+												while (intActStart != -1 && intActStart < posnSetEnd) {
+													intActStart = strPage.indexOf(":", intActStart);
+													intActEnd = strPage.indexOf("#", intActStart);
+													strSet = strSet + "," + strPage.substring(intActStart + 1, intActEnd);
+													intActStart = strPage.indexOf("action", intActEnd);
+												}
+												posnSetStart = intActEnd;
 											}
-											Page.setAttribute("unset", strUnSet);
+											else
+											{
+												if (keepGoingSet)
+												{
+													Page.setAttribute("set", strSet);
+													keepGoingSet = false;
+												}
+											}
+	
+											//Unset
+											posnUnSetStart = strPage.indexOf(":unset(", posnUnSetStart);
+											posnUnSetEnd = -1;
+											if  (posnUnSetStart != -1  && keepGoingUnSet) {
+												posnUnSetEnd = strPage.indexOf(")", posnUnSetStart);
+												if (posnUnSetEnd > posnLastUnSet){
+													posnLastUnSet = posnUnSetEnd;
+												}												int intActStart = strPage.indexOf("action", posnUnSetStart);
+												intActStart = strPage.indexOf(":", intActStart);
+												int intActEnd = strPage.indexOf("#", intActStart);
+												if (strUnSet.length() > 0)
+												{
+													strUnSet = strUnSet + "," + strPage.substring(intActStart + 1, intActEnd);
+												}
+												else
+												{
+													strUnSet = strUnSet + strPage.substring(intActStart + 1, intActEnd);
+												}
+												intActStart = strPage.indexOf("action", intActEnd);
+												while (intActStart != -1 && intActStart < posnUnSetEnd) {
+													intActStart = strPage.indexOf(":", intActStart);
+													intActEnd = strPage.indexOf("#", intActStart);
+													strUnSet = strUnSet + "," + strPage.substring(intActStart + 1, intActEnd);
+													intActStart = strPage.indexOf("action", intActEnd);
+												}
+												posnUnSetStart = intActEnd;
+											}
+											else
+											{
+												if (keepGoingUnSet)
+												{
+													Page.setAttribute("unset", strUnSet);
+													keepGoingUnSet = false;
+												}
+											}
 										}
-
-										if (posnSetEnd > posnUnSetEnd) {
-											posnInstructEnd = strPage.indexOf(")", posnSetEnd);
+										if (posnLastSet > posnLastUnSet) {
+											posnInstructEnd = strPage.indexOf(")", posnLastSet);
 										} else {
-											posnInstructEnd = strPage.indexOf(")", posnUnSetEnd);
+											posnInstructEnd = strPage.indexOf(")", posnLastUnSet);
 										}
 										strPage = strPage.substring(0, posnInstructStart) + strPage.substring(posnInstructEnd + 1);
 									}
@@ -974,7 +1152,7 @@ public class Download implements Runnable {
 								intImageEnd = htmlstr.indexOf("\"", intImageStart);
 								strImage = htmlstr.substring(intImageStart, intImageEnd);
 								strImagePath = strGuidePath + "\\" + strMediaDir + "\\" + strPageName + strImage.substring(strImage.length() - 4);
-								saveFile(strImagePath, strImage);
+								saveFile(strImagePath, strImage, strImage);
 								Element Image = doc.createElement("Image");
 								Image.setAttribute("id", strPageName + strImage.substring(strImage.length() - 4));
 								Page.appendChild(Image);
@@ -1018,13 +1196,13 @@ public class Download implements Runnable {
 	}
 	private void saveFile(String strImagePath, String strImage, String AuthorID, String StrNyxId) {
 		String strUrl = "https://www.milovana.com/media/get.php?folder=" + AuthorID + "/" + StrNyxId + "&name=" + strImage;
-		saveFile(strImagePath, strUrl);
+		saveFile(strImagePath, strUrl, strImage);
 	}
 
 	
 	
 	
-	private void saveFile(String strImagePath, String strUrl) {
+	private void saveFile(String strImagePath, String strUrl, String strImage) {
         File f = new File(strImagePath);
         if (strImagePath.endsWith("mp3")) {
         	logger.debug("audio file");
@@ -1045,16 +1223,20 @@ public class Download implements Runnable {
 				in.close();
 				byte[] response = out.toByteArray();
 				boolean found = false;
-				for (byte[] image : images)
+				Iterator<Entry<String, byte[]>> it = images.entrySet().iterator();
+				while (it.hasNext())
 				{
-					if (Arrays.equals(image, response))
+					HashMap.Entry<String, byte[]> pair = (HashMap.Entry<String, byte[]>)it.next();
+					
+					if (Arrays.equals(pair.getValue(), response)  && pair.getKey().equals(strImage))
 					{
+						
 						found = true;
 					}	
 				}
 				if (!found)
 				{
-					images.add(response);
+					images.put(strImage, response);
 					FileOutputStream fos = new FileOutputStream(strImagePath);
 					fos.write(response);
 					fos.close();
@@ -1110,6 +1292,16 @@ public class Download implements Runnable {
 		return strReturn;
 	}
 
+	private String HtmlUnEncode(String text)
+	{
+		text = text.replace("&apos;","'");
+		text = text.replace("&amp;","&");
+		text = text.replace("&lt;","<");
+		text = text.replace("&gt;",">");
+		text = text.replace("&quot;","\"");
+		return text;
+	}
+	
 	  private static void doUpdate(final MainShell mainShell,
 		      final String value) {
 		  Display.getDefault().asyncExec(new Runnable() {

@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 
@@ -18,14 +19,17 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.w3c.dom.ls.DOMImplementationLS;
+import org.w3c.dom.ls.LSSerializer;
 
 public class ComonFunctions {
 	private SecureRandom mRandom = new SecureRandom();
 	private static Logger logger = LogManager.getLogger();
     private XPathFactory factory = XPathFactory.newInstance();
     private XPath xpath = factory.newXPath();
-    private static final String version = "0.0.5";
+    private static final String version = "0.0.7";
 
 	private static ComonFunctions comonFunctions;
 
@@ -396,8 +400,40 @@ public class ComonFunctions {
 		return fileexists;
 	}
 
+	public String imageSignature(byte[] image)
+	{
+		String returnVal = "";
+		try
+		{
+		MessageDigest md = MessageDigest.getInstance("MD5");
+		md.update(image);
+		byte[] digBytes = md.digest();
+		StringBuilder sb = new StringBuilder();
+		for (byte b : digBytes) {
+		  sb.append(String.format("%02X", b & 0xff));
+		}
+		returnVal = sb.toString();		
+		} catch (Exception ex) {
+			logger.error(ex.getLocalizedMessage(),ex);
+		}
+		return returnVal;
+	}
+	
+	
 	public static String getVersion() {
 		return version;
 	}
-	
+
+
+	public String innerXml(Node node) {
+	    DOMImplementationLS lsImpl = (DOMImplementationLS)node.getOwnerDocument().getImplementation().getFeature("LS", "3.0");
+	    LSSerializer lsSerializer = lsImpl.createLSSerializer();
+	    lsSerializer.getDomConfig().setParameter("xml-declaration", false);
+	    NodeList childNodes = node.getChildNodes();
+	    StringBuilder sb = new StringBuilder();
+	    for (int i = 0; i < childNodes.getLength(); i++) {
+	       sb.append(lsSerializer.writeToString(childNodes.item(i)));
+	    }
+	    return sb.toString(); 
+	}
 }

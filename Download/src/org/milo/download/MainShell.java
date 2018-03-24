@@ -21,6 +21,10 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Monitor;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Text;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 import com.snapps.swt.SquareButton;
 
@@ -40,7 +44,8 @@ public class MainShell {
 	private Label lbltitle;
 	private Label lblmessage;
 	private Browser brwsSearch;
-	
+	private Text nyxText;
+	private shellKeyEventListener keyListener;
 
 	public void setLblmessage(String message) {
 		this.lblmessage.setText(message);
@@ -69,8 +74,12 @@ public class MainShell {
 			myDisplay = display;
 			logger.trace("shell");
 			shell = new Shell(myDisplay);
+			shell.setBackground(display.getSystemColor(SWT.COLOR_GRAY));
 			logger.trace("shell add listener");
 			shell.addShellListener(new shellCloseListen());
+			logger.trace("key filter");
+			keyListener = new shellKeyEventListener();
+			myDisplay.addFilter(SWT.KeyDown, keyListener);
 
 			//get primary monitor and its size
 			Monitor primary = display.getPrimaryMonitor();
@@ -89,6 +98,7 @@ public class MainShell {
 
 			lblURL = new Label(shell, SWT.LEFT);
 			lblURL.setText("Milo URL:");
+			lblURL.setBackground(display.getSystemColor(SWT.COLOR_GRAY));
 			FormData lblURLFormData = new FormData();
 			lblURLFormData.top = new FormAttachment(brwsSearch,5);
 			lblURLFormData.left = new FormAttachment(0,5);
@@ -112,6 +122,14 @@ public class MainShell {
 			btnSaveGuide.setLayoutData(btnSaveFormData);
 			btnSaveGuide.addSelectionListener(new SaveButtonListener());
 
+			SquareButton btnSaveAll = new SquareButton(shell, SWT.PUSH);
+			btnSaveAll.setText("Save All on page");
+			FormData btnSaveAllFormData = new FormData();
+			btnSaveAllFormData.top = new FormAttachment(lblURL, 5);
+			btnSaveAllFormData.left = new FormAttachment(btnSaveGuide, 5);
+			btnSaveAll.setLayoutData(btnSaveAllFormData);
+			btnSaveAll.addSelectionListener(new SaveButtonAllListener());
+
 			lbltitle = new Label(shell, SWT.LEFT);
 			FormData lbltitleFormData = new FormData();
 			lbltitleFormData.top = new FormAttachment(btnSaveGuide,5);
@@ -119,6 +137,7 @@ public class MainShell {
 			lbltitleFormData.right = new FormAttachment(100, -5);
 			lbltitle.setLayoutData(lbltitleFormData);
 			lbltitle.setText("title");
+			lbltitle.setBackground(display.getSystemColor(SWT.COLOR_GRAY));
 			
 			lblmessage = new Label(shell, SWT.LEFT);
 			FormData lblmessageFormData = new FormData();
@@ -127,7 +146,25 @@ public class MainShell {
 			lblmessageFormData.right = new FormAttachment(100, -5);
 			lblmessage.setLayoutData(lblmessageFormData);
 			lblmessage.setText("message");
+			lblmessage.setBackground(display.getSystemColor(SWT.COLOR_GRAY));
 			
+			/*
+		    nyxText = new Text(shell, SWT.MULTI | SWT.BORDER | SWT.WRAP | SWT.V_SCROLL);			
+			FormData nyxTextFormData = new FormData();
+			nyxTextFormData.top = new FormAttachment(lblmessage,5);
+			nyxTextFormData.left = new FormAttachment(0,5);
+			nyxTextFormData.right = new FormAttachment(100, -5);
+			nyxText.setLayoutData(nyxTextFormData);
+			
+			SquareButton btnNyxText = new SquareButton(shell, SWT.PUSH);
+			btnNyxText.setText("Generate from Nyx");
+			FormData btnNyxTextFormData = new FormData();
+			btnNyxTextFormData.top = new FormAttachment(nyxText, 5);
+			btnNyxTextFormData.left = new FormAttachment(0, 5);
+			btnNyxTextFormData.bottom = new FormAttachment(100, -2);
+			btnNyxText.setLayoutData(btnNyxTextFormData);
+			btnNyxText.addSelectionListener(new btnNyxTextButtonListener());
+			*/
 			//Menu Bar
 			Menu MenuBar = new Menu (shell, SWT.BAR);
 
@@ -196,19 +233,93 @@ public class MainShell {
 		}
 	}
 	
+	
+	//hotkey stuff here
+	class shellKeyEventListener implements Listener {
+		@Override
+		public void handleEvent(Event event) {
+			try {
+				logger.trace(event.character + "|" + event.keyCode + "|" + event.keyLocation + "|" + event.stateMask);
+				if (((event.stateMask & SWT.ALT) == SWT.ALT)) {
+					switch (event.character) {
+					case 's' :
+					case 'S' :
+						TriggerDownload();
+						break;
+					}
+				} else {
+				}
+			}
+			catch (Exception ex) {
+				logger.error(" hot key " + ex.getLocalizedMessage(), ex);
+			}
+		}
+	}
+	
+	private void TriggerDownload()
+	{
+		String strUrls = txtURL.getText();
+		String[] strUrlList = strUrls.split(",");
+		for (String strUrl : strUrlList)
+		{
+			Download download = new Download(strUrl, mainShell);
+			Thread t = new Thread(download);
+			t.start();
+		}
+	}
+	
+	
+	
 	// Click event code for the dynamic buttons
 	class SaveButtonListener extends SelectionAdapter {
 		public void widgetSelected(SelectionEvent event) {
 			try {
 				logger.trace("Enter SaveButtonListner");
+				TriggerDownload();
+			}
+			catch (Exception ex) {
+				logger.error(" SaveButtonListner " + ex.getLocalizedMessage());
+			}
+		}
+	}
 
-				String strUrl = txtURL.getText();
-				Download download = new Download(strUrl, mainShell);
+
+	// Click event code for the dynamic buttons
+	class SaveButtonAllListener extends SelectionAdapter {
+		public void widgetSelected(SelectionEvent event) {
+			try {
+				logger.trace("Enter SaveAllButtonListner");
+				Document doc = Jsoup.parse(brwsSearch.getText());
+				Elements tease = doc.select(".tease > .bubble > h1 > a");
+				tease.forEach(el -> LoadTease(el));
+			}
+			catch (Exception ex) {
+				logger.error(" SaveAllButtonListner " + ex.getLocalizedMessage());
+			}
+		}
+	}
+
+	private void LoadTease(Element el)
+	{
+		String strUrl = "https://milovana.com/" + el.attr("href");
+		Download download = new Download(strUrl, mainShell);
+		Thread t = new Thread(download);
+		t.start();		
+	}
+
+	// Click event code for the dynamic buttons
+	class btnNyxTextButtonListener extends SelectionAdapter {
+		public void widgetSelected(SelectionEvent event) {
+			try {
+				logger.trace("Enter btnNyxTextButtonListener");
+
+				String strNyxText = nyxText.getText();
+				Download download = new Download("", mainShell);
 				Thread t = new Thread(download);
 				t.start();
 			}
 			catch (Exception ex) {
-				logger.error(" SaveButtonListner " + ex.getLocalizedMessage());
+				logger.error(" btnNyxTextButtonListener " + ex.getLocalizedMessage());
 			}
 		}
 	}
@@ -251,6 +362,10 @@ public class MainShell {
 			super.widgetSelected(e);
 		}
 
+	}
+
+	public String getLbltitle() {
+		return lbltitle.getText();
 	}
 
 }

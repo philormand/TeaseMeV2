@@ -9,14 +9,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.SecureRandom;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map.Entry;
+import java.util.Map;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.xml.parsers.DocumentBuilder;
@@ -34,7 +33,12 @@ import org.w3c.dom.Comment;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+
+import htmlflow.HtmlView;
+import htmlflow.elements.HtmlA;
+import htmlflow.elements.HtmlBody;
 
 public class Download implements Runnable {
 	private static Logger logger = LogManager.getLogger();
@@ -43,7 +47,10 @@ public class Download implements Runnable {
 	private Boolean isFlash;
 	MainShell mainShell;
 	private AppSettings appSettings;
-	private HashMap<String, byte[]> images = new HashMap<String, byte[]>();
+	private ComonFunctions comonFunctions = ComonFunctions.getComonFunctions();
+	private HashMap<String, Integer> images = new HashMap<String, Integer>();
+	private HashMap<String, String> staticImages = new HashMap<String, String>();
+	private HashMap<String, String> randomImages =  new HashMap<String, String>();
 
 	public Download(String url, MainShell shell) {
 		strUrl = url;
@@ -56,29 +63,37 @@ public class Download implements Runnable {
 
 		// path to the xml files
 		strGuidePath = appSettings.getDataDirectory();
-
+		
+		String htmlstr = "";
+		String rawGuide = "";
+		String StrNyxId = "";
+		String strMediaDir = "";
+		String AuthorID = "";
+		String strAuthorName = "";
+		String strTitle = "";
+		boolean writeHtml = false;
+		
 		int idpos = strUrl.indexOf("?id=");
-		String StrNyxId = strUrl.substring(idpos + 4);
+		StrNyxId = strUrl.substring(idpos + 4);
+		boolean previewTease = strUrl.indexOf("previewScript") > 0;
 		String strNyxUrl = "https://www.milovana.com/webteases/getscript.php?id=" + StrNyxId;
-		String rawGuide = parseGuide(strNyxUrl);
-		String htmlstr = parseGuide(strUrl);
+		if (previewTease) strNyxUrl = "https://milovana.com/nyx/previewScript.php?id=" + StrNyxId;
+		rawGuide = parseGuide(strNyxUrl);
+		htmlstr = parseGuide(strUrl);
 		if (rawGuide.equals("")) {
 			isFlash = false;
 		} else {
 			isFlash = true;
 		}
 		
-		String strMediaDir = "";
-		
 		if (isFlash) {
 			//flash tease
 			int intStrt;
 			int intEnd;
 			SecureRandom rndgen = new SecureRandom();
-			HashMap<String, Integer> rndImages = new HashMap<String, Integer>();
+			//HashMap<String, Integer> rndImages = new HashMap<String, Integer>();
 			HashMap<String, String> mustNotMap = new HashMap<String, String>();
 			HashMap<String, String> mustMap = new HashMap<String, String>();
-			String AuthorID = "";
 			try {
 				intStrt = htmlstr.indexOf("href=\"webteases/#author=");
 				if (intStrt != -1) {
@@ -90,7 +105,6 @@ public class Download implements Runnable {
 			catch (Exception ex) {
 				logger.error(" AuthorID " + ex.getLocalizedMessage());
 			}
-			String strAuthorName = "";
 			try {
 				intStrt = htmlstr.indexOf("teaseAuthor=");
 				if (intStrt != -1) {
@@ -102,7 +116,6 @@ public class Download implements Runnable {
 			catch (Exception ex) {
 				logger.error(" strAuthorName " + ex.getLocalizedMessage());
 			}
-			String strTitle = "";
 			try {
 				intStrt = htmlstr.indexOf("teaseName=");
 				if (intStrt != -1) {
@@ -119,8 +132,10 @@ public class Download implements Runnable {
 					strTitle = strTitle.replace("%28", "(");
 					strTitle = strTitle.replace("%29", ")");
 					strTitle = strTitle.replace("%2C", ",");
+					strTitle = strTitle.replace("%22", "\"");
 				}
 				strMediaDir = strTitle.replace(" ", "-");
+				strMediaDir = strMediaDir.replace("\"", "");
 				strMediaDir = strMediaDir.replace(":", "");
 				strMediaDir = strMediaDir.replace("!", "");
 				strMediaDir = strMediaDir.replace("'", "");
@@ -132,12 +147,17 @@ public class Download implements Runnable {
 				strMediaDir = strMediaDir.replace(",", "-");
 				strMediaDir = strMediaDir.replace("--", "-");
 				strMediaDir = strMediaDir.replace("--", "-");
+				if (previewTease)
+				{
+					strMediaDir = "Preview" + StrNyxId;
+					strTitle =  "Preview" + StrNyxId;
+				}
+
 				doUpdateTitle(mainShell, strTitle);
 			}
 			catch (Exception ex) {
 				logger.error(" strTitle " + ex.getLocalizedMessage());
 			}
-
 			try {
 				DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
 				DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
@@ -247,6 +267,7 @@ public class Download implements Runnable {
 					Boolean blnLoop = true;
 					Element Page;
 					String pageType;
+					//int imageCount = 0;
 
 					
 					//process mustnot
@@ -415,8 +436,16 @@ public class Download implements Runnable {
 								
 								if (posn2 != posnMax) {
 									posn3 = rawGuide.lastIndexOf(")", posn2);
-									strPage = rawGuide.substring(posn, posn3 + 1);
-									currposn = posn3 + 1;
+									if (posn3 > posn)
+									{
+										strPage = rawGuide.substring(posn, posn3 + 1);
+										currposn = posn3 + 1;
+									}
+									else
+									{
+										strPage = rawGuide.substring(posn, posn2);
+										currposn = posn2;
+									}	
 								} else {
 									strPage = rawGuide.substring(posn);
 									blnLoop = false;
@@ -428,6 +457,7 @@ public class Download implements Runnable {
 								try {
 									Comment pageascomment = doc.createComment(strPage);
 									Page.appendChild(pageascomment);
+									//imageCount = 0;
 								}
 								catch (Exception ex) {
 									logger.error(" Nyx Comment " + strPageName + " " + ex.getLocalizedMessage());
@@ -445,6 +475,8 @@ public class Download implements Runnable {
 										strText = strPage.substring(posnTextStart, posnTextEnd);
 										strText = strText.replace("SIZE=\"", "style=\"font-size:");
 										strText = strText.replace("Â","");
+										strText = strText.replace("<br>", "<br/>");
+										strText = strText.replace("<BR>", "<br/>");
 
 										//strip the text
 										strPage = strPage.substring(0, posnTextStart) + strPage.substring(posnTextEnd);
@@ -484,22 +516,10 @@ public class Download implements Runnable {
 												{
 													tmpImage = tmpImage + ".jpg";
 												}
-												if (!rndImages.containsKey(strImage)) {
-													for (int i = 0; i < 25; i++) {
-													//for (int i = 0; i < 1; i++) {
-														int intName = rndgen.nextInt();
-														if (intName < 0) {
-															intName = 0 - intName;
-														}
-														String strRndName = tmpImage.replace("*", Integer.toString(intName));
-														strImagePath = strGuidePath + "\\" + strMediaDir + "\\" + strRndName;
-														saveFile(strImagePath, strImage, AuthorID, StrNyxId);
-													}
-													rndImages.put(strImage, 5);
-												}
+												randomImages.put(strImage, tmpImage);
 											} else {
 												strImagePath = strGuidePath + "\\" + strMediaDir + "\\" + strImage;
-												saveFile(strImagePath, strImage, AuthorID, StrNyxId);
+												saveFile(strImagePath, strImage, AuthorID, StrNyxId, false);
 											}
 										}
 									}
@@ -565,6 +585,8 @@ public class Download implements Runnable {
 									strPage = strPage.replace("action:vert(e0:", "action:");
 									strPage = strPage.replace(",e1:", ",action:");
 									strPage = strPage.replace(",e2:", ",action:");
+									strPage = strPage.replace(",e3:", ",action:");
+									strPage = strPage.replace(",e4:", ",action:");
 								}
 								
 								//Delay
@@ -936,6 +958,39 @@ public class Download implements Runnable {
 				catch (Exception ex) {
 					logger.error(" Pages " + ex.getLocalizedMessage());
 				}
+
+				
+				for (Map.Entry<String, String> entry : randomImages.entrySet()) {
+				    String strImage = entry.getKey();
+				    String tmpImage = entry.getValue();
+					doUpdate(mainShell, strImage + " Images:");
+					int newCount = 20;
+					int imageCount = 1;
+					images = new HashMap<String, Integer>();
+					while (newCount > 5)
+					{
+						newCount = 20;
+						for (int i = 0; i < 20; i++) {
+							int intName = rndgen.nextInt();
+							if (intName < 0) {
+								intName = 0 - intName;
+							}
+							String strRndName = tmpImage.replace("*", Integer.toString(intName));
+							String strImagePath = strGuidePath + "\\" + strMediaDir + "\\" + strRndName;
+							boolean fileSaved = saveFile(strImagePath, strImage, AuthorID, StrNyxId, true); 
+							if (!fileSaved)
+							{
+								newCount-- ;
+							}
+							else
+							{
+								doUpdate(mainShell, strImage + " Images:" + imageCount);
+								imageCount++;
+							}
+						}
+					}
+				}				
+				
 				doUpdate(mainShell, "Finished");
 				// write the content into xml file
 				TransformerFactory transformerFactory = TransformerFactory.newInstance();
@@ -945,6 +1000,33 @@ public class Download implements Runnable {
 				transformer.setOutputProperty(OutputKeys.INDENT, "yes");
 				transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
 				transformer.transform(source, result);
+				if (writeHtml)
+				{
+					NodeList nl = doc.getElementsByTagName("Page");
+					for(int k=0;k<nl.getLength();k++){
+						String page;
+						HtmlView<?> pageView = new HtmlView<Object>();
+						Element htmlPage = (Element)nl.item(k);
+						page = htmlPage.getAttribute("id");
+						NodeList image = htmlPage.getElementsByTagName("Image");
+						NodeList text = htmlPage.getElementsByTagName("Text");
+						HtmlBody<?> htmlBody = pageView.body();
+						htmlBody.addAttr("style", "background-color: black");
+						if (image.getLength() > 0)
+						{
+							Element imageEl = (Element)image.item(0);
+							htmlBody.addChild(new HtmlA<Object>(imageEl.getAttribute("id")));
+						}
+						if (text.getLength() > 0)
+						{
+							htmlBody.text(comonFunctions.innerXml(text.item(0)));
+						}
+				        try(PrintStream out = new PrintStream(new FileOutputStream(strGuidePath + "\\" + strMediaDir + "\\" + page + ".html"))){
+				        	pageView.setPrintStream(out).write();
+				        }						
+					}
+				}
+				
 			}
 			catch (Exception ex) {
 				logger.error(" XML Gen " + ex.getLocalizedMessage());
@@ -971,7 +1053,7 @@ public class Download implements Runnable {
 			int intEnd;
 			int intAuthId = -1;
 			
-			String AuthorID = "";
+			AuthorID = "";
 			try {
 				intAuthId = htmlstr.indexOf("href=\"webteases/#author=");
 				if (intAuthId != -1) {
@@ -983,7 +1065,7 @@ public class Download implements Runnable {
 			catch (Exception ex) {
 				logger.error(" AuthorID " + ex.getLocalizedMessage());
 			}
-			String strAuthorName = "";
+			strAuthorName = "";
 			try {
 				intStrt = htmlstr.indexOf(";\">", intAuthId);
 				if (intStrt != -1) {
@@ -995,7 +1077,7 @@ public class Download implements Runnable {
 			catch (Exception ex) {
 				logger.error(" strAuthorName " + ex.getLocalizedMessage());
 			}
-			String strTitle = "";
+			strTitle = "";
 			try {
 				intStrt = htmlstr.indexOf("<h1 id=\"tease_title\">");
 				if (intStrt != -1) {
@@ -1015,6 +1097,7 @@ public class Download implements Runnable {
 					strTitle = strTitle.replace("%2C", ",");
 				}
 				strMediaDir = strTitle.replace(" ", "-");
+				strMediaDir = strMediaDir.replace("\"", "");
 				strMediaDir = strMediaDir.replace(":", "");
 				strMediaDir = strMediaDir.replace("!", "");
 				strMediaDir = strMediaDir.replace("'", "");
@@ -1152,7 +1235,7 @@ public class Download implements Runnable {
 								intImageEnd = htmlstr.indexOf("\"", intImageStart);
 								strImage = htmlstr.substring(intImageStart, intImageEnd);
 								strImagePath = strGuidePath + "\\" + strMediaDir + "\\" + strPageName + strImage.substring(strImage.length() - 4);
-								saveFile(strImagePath, strImage, strImage);
+								saveFile(strImagePath, strImage, strImage, false);
 								Element Image = doc.createElement("Image");
 								Image.setAttribute("id", strPageName + strImage.substring(strImage.length() - 4));
 								Page.appendChild(Image);
@@ -1194,15 +1277,15 @@ public class Download implements Runnable {
 			logger.trace("Exit SaveButtonListner");
 		}
 	}
-	private void saveFile(String strImagePath, String strImage, String AuthorID, String StrNyxId) {
+	private boolean saveFile(String strImagePath, String strImage, String AuthorID, String StrNyxId, boolean wild) {
 		String strUrl = "https://www.milovana.com/media/get.php?folder=" + AuthorID + "/" + StrNyxId + "&name=" + strImage;
-		saveFile(strImagePath, strUrl, strImage);
+		return saveFile(strImagePath, strUrl, strImage, wild);
 	}
 
 	
 	
 	
-	private void saveFile(String strImagePath, String strUrl, String strImage) {
+	private boolean saveFile(String strImagePath, String strUrl, String strImage, boolean wild) {
         File f = new File(strImagePath);
         if (strImagePath.endsWith("mp3")) {
         	logger.debug("audio file");
@@ -1222,30 +1305,29 @@ public class Download implements Runnable {
 				out.close();
 				in.close();
 				byte[] response = out.toByteArray();
-				boolean found = false;
-				Iterator<Entry<String, byte[]>> it = images.entrySet().iterator();
-				while (it.hasNext())
+				String imageHash = comonFunctions.imageSignature(response);
+				boolean saveFile = !wild || (wild && (!staticImages.containsKey(imageHash) && !images.containsKey(imageHash)));
+				if (saveFile)
 				{
-					HashMap.Entry<String, byte[]> pair = (HashMap.Entry<String, byte[]>)it.next();
-					
-					if (Arrays.equals(pair.getValue(), response)  && pair.getKey().equals(strImage))
+					images.put(imageHash, 5);
+					if (!wild)
 					{
-						
-						found = true;
-					}	
-				}
-				if (!found)
-				{
-					images.put(strImage, response);
+						staticImages.put(imageHash, strImage);
+					}
 					FileOutputStream fos = new FileOutputStream(strImagePath);
 					fos.write(response);
 					fos.close();
 				}
 				try {
-					Thread.sleep(50);
+					Thread.sleep(100);
 				} catch (Exception e) {
 					logger.error(" Thread sleep " + e.getLocalizedMessage());
-				}				                	
+				}	
+				return saveFile;
+			}
+			else
+			{
+				return false;
 			}
 		} catch (MalformedURLException e) {
 			logger.error(" MalformedURLException " + e.getLocalizedMessage());
@@ -1254,7 +1336,7 @@ public class Download implements Runnable {
 		} catch (IOException e) {
 			logger.error(" IOException " + e.getLocalizedMessage());
 		}
-		
+		return false;
 	}
 	private String parseGuide(String strURL) {
 		String USER_AGENT = "Mozilla/5.0";
@@ -1316,7 +1398,10 @@ public class Download implements Runnable {
 		  Display.getDefault().asyncExec(new Runnable() {
 		      @Override
 		      public void run() {
-		    	  mainShell.setLbltitle(value);
+		    	  String title = mainShell.getLbltitle();
+		    	  if (title.length() > 0) title = title + ", ";
+		    	  title = title + value;
+		    	  mainShell.setLbltitle(title);
 		      }
 		    });
 		  }

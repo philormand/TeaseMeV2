@@ -13,6 +13,7 @@ import java.io.PrintStream;
 import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.HttpURLConnection;
 import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
@@ -1293,8 +1294,15 @@ public class Download implements Runnable {
         try {
 			if(!f.exists()){
 
-				URL Imageurl = new URL(strUrl);
-				InputStream in = new BufferedInputStream(Imageurl.openStream());
+				HttpURLConnection connection = (HttpURLConnection) new URL(strUrl).openConnection();
+				HttpURLConnection.setFollowRedirects(true);
+				connection.setRequestProperty("User-Agent", 
+				      "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:10.0.2) Gecko/20100101 Firefox/10.0.2");
+				connection.connect();
+				InputStream in = new BufferedInputStream(connection.getInputStream());;				
+				
+				//URL Imageurl = new URL(strUrl);
+				//InputStream in = new BufferedInputStream(Imageurl.openStream());
 				ByteArrayOutputStream out = new ByteArrayOutputStream();
 				byte[] buf = new byte[1024];
 				int n = 0;
